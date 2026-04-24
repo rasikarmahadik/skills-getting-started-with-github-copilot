@@ -21,9 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
-        let participantsList = '';
+        let participantsList = '<h5>Current Participants:</h5><ul class="participants-list">';
         if (details.participants.length > 0) {
-          participantsList = '<h5>Current Participants:</h5><ul class="participants-list">';
           details.participants.forEach(email => {
             participantsList += `
               <li>
@@ -33,8 +32,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 </button>
               </li>`;
           });
-          participantsList += '</ul>';
+        } else {
+          participantsList += '<li class="no-participants">No participants yet</li>';
         }
+        participantsList += '</ul>';
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
@@ -49,7 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Add option to select dropdown
         const option = document.createElement("option");
         option.value = name;
-        option.textContent = name;
+        option.textContent = details.participants.length >= details.max_participants ? `${name} (Full)` : name;
+        option.disabled = details.participants.length >= details.max_participants;
         activitySelect.appendChild(option);
       });
     } catch (error) {
@@ -67,9 +69,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const response = await fetch(
-        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+        `/activities/${encodeURIComponent(activity)}/signup`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
         }
       );
 
@@ -110,8 +116,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const response = await fetch(
-        `/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`,
-        { method: "DELETE" }
+        `/activities/${encodeURIComponent(activity)}/unregister`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        }
       );
       const result = await response.json();
 

@@ -5,7 +5,9 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+import re
+
+from fastapi import FastAPI, Body, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -13,6 +15,29 @@ from pathlib import Path
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
+
+EMAIL_PATTERN = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
+
+def is_valid_email(email: str) -> bool:
+    return bool(EMAIL_PATTERN.match(email.strip()))
+
+
+def get_email_from_request(email: str | None, payload: dict | None) -> str | None:
+    if email:
+        return email.strip()
+
+    if payload and isinstance(payload, dict):
+        payload_email = payload.get("email")
+        return str(payload_email).strip() if payload_email else None
+
+    return None
+
+
+def get_activity_or_404(activity_name: str) -> dict:
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return activities[activity_name]
 
 # Mount the static files directory
 current_dir = Path(__file__).parent
@@ -89,29 +114,46 @@ def get_activities():
 
 
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
+def signup_for_activity(
+    activity_name: str,
+    email: str | None = Query(None),
+    payload: dict | None = Body(default=None),
+):
     """Sign up a student for an activity"""
-    # Validate activity exists
-    if activity_name not in activities:
-        raise HTTPException(status_code=404, detail="Activity not found")
+    email = get_email_from_request(email, payload)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
 
-    # Get the specific activity
-    activity = activities[activity_name]
+    if not is_valid_email(email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
 
-    # Validate student is not already signed up
+    activity = get_activity_or_404(activity_name)
+
     if email in activity["participants"]:
         raise HTTPException(status_code=400, detail="Student already signed up for this activity")
+
+    if len(activity["participants"]) >= activity["max_participants"]:
+        raise HTTPException(status_code=400, detail="Activity is full")
+
     activity["participants"].append(email)
     return {"message": f"Signed up {email} for {activity_name}"}
 
 
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(
+    activity_name: str,
+    email: str | None = Query(None),
+    payload: dict | None = Body(default=None),
+):
     """Unregister a student from an activity"""
-    if activity_name not in activities:
-        raise HTTPException(status_code=404, detail="Activity not found")
+    email = get_email_from_request(email, payload)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
 
-    activity = activities[activity_name]
+    if not is_valid_email(email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    activity = get_activity_or_404(activity_name)
     if email not in activity["participants"]:
         raise HTTPException(status_code=404, detail="Participant not found")
 

@@ -37,8 +37,19 @@ main {
 
 @media (min-width: 768px) {
   main {
+    display: grid;
     grid-template-columns: 2fr 1fr;
   }
+}
+
+.participants-list {
+  margin-top: 10px;
+  padding-left: 0;
+}
+
+.no-participants {
+  color: #666;
+  font-style: italic;
 }
 
 section {
